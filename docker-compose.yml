@@ -408,10 +408,12 @@ services:
     ports:
       - "80:80"
       - "443:443"
-      # Loopback-only: reachable as localhost:${DEBUG_PORT} from this host,
-      # not from the network/internet. Omitting the "127.0.0.1:" prefix
-      # here is exactly what made the old debug site publicly reachable.
-      - "127.0.0.1:${DEBUG_PORT:-8080}:${DEBUG_PORT:-8080}"
+      # Loopback-only by default: reachable as localhost:${DEBUG_PORT} from
+      # this host, not from the network/internet. Omitting the bind address
+      # entirely (or setting DEBUG_BIND_IP=0.0.0.0) is exactly what made the
+      # old debug site publicly reachable — only widen DEBUG_BIND_IP to a
+      # specific LAN interface IP (never 0.0.0.0) if you need LAN access.
+      - "${DEBUG_BIND_IP:-127.0.0.1}:${DEBUG_PORT:-8080}:${DEBUG_PORT:-8080}"
     environment:
       CADDY_INGRESS_NETWORKS: campustrack_net
     volumes:
