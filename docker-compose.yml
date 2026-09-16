@@ -173,8 +173,6 @@ services:
       # ── Sentry (optional — blank disables it, see .env.example) ──
       SENTRY_DSN: ${SENTRY_DSN:-}
       SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
-    ports:
-      - "4400:4400"
     depends_on:
       postgres:
         condition: service_healthy
@@ -408,6 +406,7 @@ services:
     ports:
       - "80:80"
       - "443:443"
+      - "4400:${DEBUG_PORT:-8080}"
       # Loopback-only by default: reachable as localhost:${DEBUG_PORT} from
       # this host, not from the network/internet. Omitting the bind address
       # entirely (or setting DEBUG_BIND_IP=0.0.0.0) is exactly what made the
