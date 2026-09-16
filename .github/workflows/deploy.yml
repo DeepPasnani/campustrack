@@ -1,0 +1,93 @@
+name: Deploy
+
+# Runs automatically once CI has passed on main, or can be triggered by
+# hand (e.g. to redeploy the same commit). Deploying to the *inactive*
+# color happens without approval — it doesn't touch live traffic. Flipping
+# traffic to it is gated behind the `production` environment's required
+# reviewers (configure this once in Settings -> Environments -> production
+# -> Required reviewers).
+on:
+  workflow_run:
+    workflows: ["CI"]
+    branches: [main]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref to deploy'
+        required: false
+        default: 'main'
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy-inactive:
+    name: Build & deploy to inactive color
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      target: ${{ steps.determine.outputs.target }}
+      sha: ${{ steps.determine.outputs.sha }}
+    steps:
+      - name: Load deploy SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Trust deploy host
+        run: ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Determine ref and inactive color
+        id: determine
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            REF="${{ github.event.inputs.ref }}"
+          else
+            REF="${{ github.event.workflow_run.head_sha }}"
+          fi
+          ACTIVE=$(ssh "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            "cat ${{ secrets.DEPLOY_PATH }}/.deploy-state 2>/dev/null || echo blue")
+          TARGET="green"
+          [ "$ACTIVE" = "green" ] && TARGET="blue"
+          echo "Active is '$ACTIVE' -> deploying '$TARGET' with ref '$REF'"
+          echo "target=$TARGET" >> "$GITHUB_OUTPUT"
+          echo "sha=$REF" >> "$GITHUB_OUTPUT"
+
+      - name: Pull code and deploy to inactive color
+        run: |
+          ssh "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" bash -s <<EOF
+            set -euo pipefail
+            cd "${{ secrets.DEPLOY_PATH }}"
+            git fetch origin
+            git checkout "${{ steps.determine.outputs.sha }}"
+            ./scripts/deploy-blue-green.sh deploy "${{ steps.determine.outputs.target }}" 3
+          EOF
+
+  flip-traffic:
+    name: Flip live traffic (requires approval)
+    needs: deploy-inactive
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Load deploy SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Trust deploy host
+        run: ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Flip nginx to the newly-deployed color
+        run: |
+          ssh "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            "cd '${{ secrets.DEPLOY_PATH }}' && ./scripts/deploy-blue-green.sh flip '${{ needs.deploy-inactive.outputs.target }}'"
+
+      - name: Summary
+        run: |
+          echo "### Deployed & flipped to \`${{ needs.deploy-inactive.outputs.target }}\` :rocket:" >> "$GITHUB_STEP_SUMMARY"
+          echo "Commit: \`${{ needs.deploy-inactive.outputs.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "If something looks wrong, run the **Rollback** workflow." >> "$GITHUB_STEP_SUMMARY"

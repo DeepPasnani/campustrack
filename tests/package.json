@@ -1,0 +1,16 @@
+{
+  "name": "campustrack-tests",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test:e2e": "npx playwright test",
+    "test:e2e:ui": "npx playwright test --ui",
+    "test:e2e:debug": "npx playwright test --debug",
+    "test:load": "node ../scripts/load-test.js",
+    "install:browsers": "npx playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.0",
+    "playwright": "^1.48.0"
+  }
+}

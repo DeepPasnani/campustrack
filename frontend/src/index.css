@@ -1,0 +1,870 @@
+/* ═══════════════════════════════════════════════════════════════════════
+ * CampusTrack Design System — Bone & Ink
+ * Register: product (app UI / exam interface)
+ * A calm, paper-toned interface: bone backgrounds, warm ink text,
+ * one deep pine accent. Flat, quiet, legible under exam pressure.
+ * Tokens, Components, Utilities — Single Source of Truth
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Everything below is wrapped in Tailwind's `components` layer. This is
+   what makes utility classes (pl-8, pr-10, py-1.5, max-w-40, ...) reliably
+   override these base styles when combined on the same element — e.g.
+   `className="input-field pl-8"` — instead of losing to them by plain
+   CSS source order (which is what caused search/eye icons to overlap
+   input text, and compact `py-1` selects to render at full height and
+   overflow their row). See: https://tailwindcss.com/docs/adding-custom-styles#using-css-and-layer */
+@layer components {
+
+/* ── CSS Custom Properties (Design Tokens) ────────────────────── */
+:root {
+  /* Colors */
+  --ct-deck: #F3EFE2;
+  --ct-panel: #FBF9F2;
+  --ct-sunken: rgba(58, 50, 34, 0.05);
+  --ct-sunken-strong: rgba(58, 50, 34, 0.09);
+  --ct-rim: #DFD4B8;
+  --ct-ink: #2A2419;
+  /* Annotation: darkened to hold >= 4.5:1 on panel (#FBF9F2) & deck (#F3EFE2).
+     Previously #8A8066 (3.7:1) — failed WCAG for normal text. */
+  --ct-annotation: #6E6444;
+  --ct-accent: #2F5D56;
+  --ct-accent-light: #4C8078;
+  --ct-accent-dark: #1E4038;
+  --ct-verify: #4B7B3F;
+  --ct-verify-light: #6E9B60;
+  --ct-verify-dark: #365C2C;
+  --ct-alert: #AE4331;
+  --ct-alert-light: #C96952;
+  --ct-alert-dark: #8A3324;
+  --ct-clarify: #565C86;
+  --ct-clarify-light: #7A80A8;
+  --ct-clarify-dark: #3F4566;
+
+  /* Trophy tier (leaderboard podium) — muted metallics, warm family */
+  --ct-trophy-gold: #A07E2B;
+  --ct-trophy-gold-light: #C49E44;
+  --ct-trophy-gold-dark: #6E541C;
+  --ct-trophy-silver: #8A938B;
+  --ct-trophy-silver-light: #AFB7B0;
+  --ct-trophy-silver-dark: #555C56;
+  --ct-trophy-bronze: #A56E45;
+  --ct-trophy-bronze-light: #C68A5E;
+  --ct-trophy-bronze-dark: #6E4826;
+
+  /* Typography */
+  --ct-font-display: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --ct-font-body: Inter, system-ui, sans-serif;
+  --ct-font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  /* Spacing (rem) */
+  --ct-space-xs: 0.25rem;
+  --ct-space-sm: 0.5rem;
+  --ct-space-md: 1rem;
+  --ct-space-lg: 1.5rem;
+  --ct-space-xl: 2rem;
+  --ct-space-2xl: 2.5rem;
+  --ct-space-3xl: 3rem;
+
+  /* Radius */
+  --ct-radius-xs: 0.125rem;
+  --ct-radius-sm: 0.5rem;
+  --ct-radius-md: 0.75rem;
+  --ct-radius-lg: 1rem;
+  --ct-radius-xl: 1.5rem;
+  --ct-radius-full: 9999px;
+
+  /* Shadows (soft, warm-toned — no glow) */
+  --ct-shadow-surface: 0 1px 3px rgba(42,36,25,0.08);
+  --ct-shadow-raised: 0 4px 12px rgba(42,36,25,0.08);
+  --ct-shadow-modal: 0 8px 30px rgba(42,36,25,0.16);
+  --ct-shadow-tooltip: 0 12px 36px rgba(42,36,25,0.22);
+
+  /* Transitions */
+  --ct-transition-fast: 75ms ease;
+  --ct-transition-base: 150ms ease;
+  --ct-transition-slow: 300ms ease;
+}
+
+/* ── Reduced Motion Guard (applies globally) ───────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* Hide continuous decorative animations */
+  .live-dot,
+  .timer-box--urgent::after {
+    display: none !important;
+  }
+}
+
+/* ── Base Styles ───────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  border-color: var(--ct-rim);
+}
+
+html {
+  font-family: var(--ct-font-body);
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background: var(--ct-deck);
+  color: var(--ct-ink);
+  line-height: 1.375;
+  min-height: 100vh;
+}
+
+::selection {
+  background: rgba(47, 93, 86, 0.18);
+  color: var(--ct-ink);
+}
+
+/* ── Skip Link (Accessibility) ────────────────────────────────── */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: var(--ct-space-md);
+  padding: var(--ct-space-sm) var(--ct-space-md);
+  background: var(--ct-accent);
+  color: var(--ct-deck);
+  font-weight: 600;
+  border-radius: var(--ct-radius-md);
+  z-index: 1000;
+  transition: top var(--ct-transition-fast);
+}
+.skip-link:focus {
+  top: var(--ct-space-md);
+}
+
+/* ── Typography Scale ──────────────────────────────────────────── */
+.text-display {
+  font-family: var(--ct-font-display);
+  font-weight: 700;
+  font-size: clamp(1.25rem, 2.5vw, 2rem);
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+.text-headline {
+  font-family: var(--ct-font-display);
+  font-weight: 600;
+  font-size: 1.25rem;
+  line-height: 1.4;
+  text-wrap: balance;
+}
+
+.text-title {
+  font-family: var(--ct-font-display);
+  font-weight: 600;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.text-body {
+  font-family: var(--ct-font-body);
+  font-weight: 400;
+  font-size: 0.875rem;
+  line-height: 1.375;
+}
+
+.text-label {
+  font-family: var(--ct-font-body);
+  font-weight: 500;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.text-caption {
+  font-family: var(--ct-font-body);
+  font-weight: 400;
+  font-size: 0.6875rem;
+  line-height: 1.5;
+}
+
+.text-mono-digit {
+  font-family: var(--ct-font-mono);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Smallest step — matches Tailwind's `2xs` (0.6875rem); keeps 11px as the
+   app-wide floor so no text falls below legibility. Pair with full-opacity
+   `text-annotation` for metadata that carries meaning. */
+.text-2xs {
+  font-size: 0.6875rem;
+  line-height: 1.4;
+}
+
+/* ── Focus Ring System (WCAG AA) ──────────────────────────────── */
+.focus-ring {
+  outline: none;
+}
+.focus-ring:focus-visible {
+  outline: 2px solid var(--ct-accent);
+  outline-offset: 2px;
+}
+
+/* ── Buttons ───────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ct-space-sm);
+  font-family: var(--ct-font-body);
+  font-weight: 500;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  border-radius: var(--ct-radius-md);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all var(--ct-transition-base);
+  user-select: none;
+  white-space: nowrap;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Keyboard-verifiable focus for every CTA. Applied to the shared base AND
+   each variant so raw `.btn-*` usages across pages get the same outline. */
+.btn:focus-visible,
+.btn-primary:focus-visible,
+.btn-ghost:focus-visible,
+.btn-verify:focus-visible,
+.btn-alert:focus-visible,
+.btn-clarify:focus-visible,
+.btn-ghost-icon:focus-visible {
+  outline: 2px solid var(--ct-accent);
+  outline-offset: 2px;
+}
+
+.btn-primary {
+  background: var(--ct-accent);
+  color: var(--ct-panel);
+  padding: var(--ct-space-sm) var(--ct-space-md);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--ct-accent-dark);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--ct-annotation);
+  border-color: var(--ct-rim);
+  padding: var(--ct-space-sm) var(--ct-space-md);
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--ct-panel);
+  color: var(--ct-ink);
+  border-color: var(--ct-rim);
+}
+
+.btn-verify {
+  background: var(--ct-verify);
+  color: var(--ct-panel);
+  padding: var(--ct-space-sm) var(--ct-space-md);
+}
+.btn-verify:hover:not(:disabled) {
+  background: var(--ct-verify-dark);
+}
+
+.btn-alert {
+  background: var(--ct-alert);
+  color: var(--ct-panel);
+  padding: var(--ct-space-sm) var(--ct-space-md);
+}
+.btn-alert:hover:not(:disabled) {
+  background: var(--ct-alert-dark);
+}
+
+.btn-clarify {
+  background: var(--ct-clarify);
+  color: var(--ct-panel);
+  padding: var(--ct-space-sm) var(--ct-space-md);
+}
+.btn-clarify:hover:not(:disabled) {
+  background: var(--ct-clarify-dark);
+}
+
+.btn-sm {
+  padding: var(--ct-space-xs) var(--ct-space-sm);
+  font-size: 0.8125rem;
+}
+
+.btn-lg {
+  padding: var(--ct-space-md) var(--ct-space-lg);
+  font-size: 1rem;
+}
+
+.btn-ghost-icon {
+  padding: var(--ct-space-sm);
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: var(--ct-radius-md);
+}
+
+/* ── Inputs & Fields ──────────────────────────────────────────── */
+.input-field {
+  width: 100%;
+  padding: var(--ct-space-sm) var(--ct-space-md);
+  font-family: var(--ct-font-body);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--ct-ink);
+  background: var(--ct-panel);
+  border: 1px solid var(--ct-rim);
+  border-radius: var(--ct-radius-md);
+  transition: all var(--ct-transition-fast);
+  outline: none;
+}
+.input-field::placeholder {
+  color: var(--ct-annotation);
+  opacity: 1;
+}
+.input-field:focus {
+  border-color: var(--ct-accent);
+  box-shadow: 0 0 0 2px rgba(47, 93, 86, 0.2);
+}
+.input-field.input-error {
+  border-color: var(--ct-alert);
+}
+.input-field.input-error:focus {
+  box-shadow: 0 0 0 2px rgba(174, 67, 49, 0.2);
+}
+
+.input-label {
+  display: block;
+  font-family: var(--ct-font-body);
+  font-weight: 500;
+  font-size: 0.75rem;
+  color: var(--ct-annotation);
+  margin-bottom: var(--ct-space-xs);
+}
+
+.input-hint {
+  font-family: var(--ct-font-body);
+  font-size: 0.75rem;
+  color: var(--ct-annotation);
+  opacity: 0.7;
+  margin-top: var(--ct-space-xs);
+}
+
+.select-field {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%236E6444' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--ct-space-md) center;
+  padding-right: 2.5rem;
+}
+
+.textarea-field {
+  min-height: 5rem;
+  resize: vertical;
+}
+
+/* ── Panels / Cards (Flat-at-Rest) ────────────────────────────── */
+.panel {
+  background: var(--ct-panel);
+  border: 1px solid var(--ct-rim);
+  border-radius: var(--ct-radius-lg);
+  /* No shadow at rest — Flat-At-Rest Rule */
+}
+/* Interactive affordance only on real interactive panels (links/buttons) —
+   static charts & tables keep the flat-at-rest rim with no hover tint. */
+a.panel:hover,
+button.panel:hover,
+[role="button"].panel:hover,
+.panel--interactive:hover {
+  border-color: rgba(47, 93, 86, 0.22);
+}
+
+.panel-muted {
+  background: var(--ct-sunken);
+  border: 1px solid var(--ct-rim);
+  border-radius: var(--ct-radius-lg);
+}
+
+/* ── Badge System (Semantic) ──────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  font-family: var(--ct-font-mono);
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: var(--ct-radius-sm);
+  border: 1px solid;
+}
+.badge-verify { background: rgba(75,123,63,0.12); color: var(--ct-verify); border-color: rgba(75,123,63,0.25); }
+.badge-alert  { background: rgba(174,67,49,0.12); color: var(--ct-alert); border-color: rgba(174,67,49,0.25); }
+.badge-accent { background: rgba(47,93,86,0.12); color: var(--ct-accent); border-color: rgba(47,93,86,0.25); }
+.badge-annotation { background: rgba(110,100,68,0.12); color: var(--ct-annotation); border-color: rgba(110,100,68,0.25); }
+.badge-clarify { background: rgba(86,92,134,0.12); color: var(--ct-clarify); border-color: rgba(86,92,134,0.25); }
+
+/* ── Progress Bar ─────────────────────────────────────────────── */
+.progress {
+  width: 100%;
+  height: 0.375rem;
+  background: var(--ct-sunken-strong);
+  border-radius: var(--ct-radius-full);
+  overflow: hidden;
+}
+.progress-bar {
+  height: 100%;
+  border-radius: var(--ct-radius-full);
+  transform-origin: left center;
+  transition: transform var(--ct-transition-slow) ease-out;
+}
+
+/* ── Tables ────────────────────────────────────────────────────── */
+.table-wrap {
+  overflow-x: auto;
+  border-radius: var(--ct-radius-lg);
+  background: var(--ct-panel);
+  border: 1px solid var(--ct-rim);
+}
+.table-wrap table { width: 100%; border-collapse: collapse; }
+.table-wrap thead { border-bottom: 1px solid var(--ct-rim); }
+.table-wrap th {
+  padding: var(--ct-space-sm) var(--ct-space-md);
+  font-family: var(--ct-font-mono);
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ct-annotation);
+  text-align: left;
+}
+.table-wrap tbody { border-color: var(--ct-rim); }
+.table-wrap td {
+  padding: var(--ct-space-sm) var(--ct-space-md);
+  font-size: 0.875rem;
+  color: var(--ct-ink);
+}
+.table-wrap tbody tr { transition: background var(--ct-transition-fast); }
+.table-wrap tbody tr:hover { background: var(--ct-panel); }
+
+/* ── Score / Digit Display ────────────────────────────────────── */
+.score-digit {
+  font-family: var(--ct-font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* ── Empty State ──────────────────────────────────────────────── */
+.empty-state {
+  background: var(--ct-panel);
+  border: 1px solid var(--ct-rim);
+  border-radius: var(--ct-radius-lg);
+  padding: 3rem;
+  text-align: center;
+}
+.empty-state-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  margin: 0 auto 0.75rem;
+  color: var(--ct-annotation);
+  opacity: 0.6;
+}
+.empty-state-title {
+  font-family: var(--ct-font-display);
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--ct-annotation);
+  margin-bottom: 0.25rem;
+}
+.empty-state-desc {
+  font-size: 0.75rem;
+  color: var(--ct-annotation);
+  opacity: 0.7;
+  margin-bottom: 1rem;
+}
+
+/* ── Section Header (No Eyebrow Pattern) ──────────────────────── */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--ct-space-lg);
+}
+.section-title {
+  font-family: var(--ct-font-display);
+  font-weight: 700;
+  font-size: 1.125rem;
+  color: var(--ct-ink);
+}
+.section-subtitle {
+  font-size: 0.875rem;
+  color: var(--ct-annotation);
+  margin-top: 0.25rem;
+}
+
+/* ── Eyebrow (single annotation hierarchy token) ──────────────── */
+.eyebrow {
+  display: inline-block;
+  font-family: var(--ct-font-mono);
+  font-size: 0.625rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  line-height: 1.4;
+  color: var(--ct-annotation);
+}
+
+/* ── Timer Signature Element ───────────────────────────────────── */
+.timer-box {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ct-space-sm);
+  padding: var(--ct-space-sm) var(--ct-space-md);
+  border-radius: var(--ct-radius-md);
+  font-family: var(--ct-font-mono);
+  font-size: 1.125rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  border: 1px solid;
+  transition: all var(--ct-transition-slow);
+  user-select: none;
+  position: relative;
+  overflow: hidden;
+}
+.timer-box::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: currentColor;
+  border-radius: 0 0 var(--ct-radius-md) var(--ct-radius-md);
+  transform-origin: right;
+  transition: transform 1s linear;
+}
+.timer-box--calm {
+  border-color: var(--ct-rim);
+  color: var(--ct-ink);
+  background: var(--ct-sunken);
+}
+.timer-box--warning {
+  border-color: rgba(47,93,86,0.35);
+  color: var(--ct-accent);
+  background: rgba(47,93,86,0.08);
+}
+.timer-box--urgent {
+  border-color: rgba(174,67,49,0.4);
+  color: var(--ct-alert);
+  background: rgba(174,67,49,0.1);
+}
+.timer-box--urgent::after {
+  animation: timerPulse 1s linear infinite;
+}
+/* Final-pressure tier — the loudest registered voice, still calm (no
+   new motion; presence comes from a filled alert pill + white digits). */
+.timer-box--critical {
+  border-color: var(--ct-alert);
+  color: var(--ct-panel);
+  background: var(--ct-alert);
+  box-shadow: 0 0 0 3px rgba(174,67,49,0.18);
+}
+
+/* Verbal pressure tag — "Low" / "Final" only when pressure is on */
+.timer-state {
+  font-family: var(--ct-font-mono);
+  font-size: 0.5625rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.timer-state--urgent {
+  border: 1px solid rgba(174,67,49,0.4);
+  color: var(--ct-alert);
+  background: rgba(174,67,49,0.08);
+  padding: 1px 5px;
+  border-radius: var(--ct-radius-sm);
+}
+.timer-state--critical {
+  border: 1px solid rgba(251,249,242,0.5);
+  color: var(--ct-panel);
+  background: rgba(251,249,242,0.16);
+  padding: 1px 5px;
+  border-radius: var(--ct-radius-sm);
+}
+@keyframes timerPulse {
+  0% { transform: scaleX(1); opacity: 1; }
+  50% { transform: scaleX(1); opacity: 0.5; }
+  100% { transform: scaleX(1); opacity: 1; }
+}
+
+/* The countdown progress rail beneath the timer digits. The Timer component
+   scales it (transform, not width) to avoid layout animation. */
+.timer-rail {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 2px;
+  background: currentColor;
+  transform-origin: left center;
+  border-radius: 0 0 var(--ct-radius-md) var(--ct-radius-md);
+  transition: transform 1s linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .timer-rail { transition: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .timer-box--urgent::after {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/* ── Live Indicator Dot ────────────────────────────────────────── */
+.live-dot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: var(--ct-radius-full);
+  background: var(--ct-alert);
+  animation: livePulse 1.5s ease-in-out infinite;
+}
+@keyframes livePulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(174, 67, 49, 0.5); }
+  50% { opacity: 0.7; box-shadow: 0 0 0 6px rgba(174, 67, 49, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-dot { animation: none; box-shadow: none; }
+}
+
+/* ── Rank Number ───────────────────────────────────────────────── */
+.rank-num {
+  font-family: var(--ct-font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Question Palette Grid ─────────────────────────────────────── */
+.q-grid-btn {
+  min-width: 44px;
+  min-height: 44px;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: var(--ct-radius-md);
+  font-family: var(--ct-font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: 1px solid;
+  transition: all var(--ct-transition-fast);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@media (min-width: 1024px) {
+  .q-grid-btn {
+    width: 2rem;
+    height: 2rem;
+    min-width: 0;
+    min-height: 0;
+  }
+}
+
+.q-grid-btn--default {
+  background: var(--ct-sunken);
+  border-color: var(--ct-rim);
+  color: var(--ct-annotation);
+}
+.q-grid-btn--default:hover {
+  border-color: rgba(47,93,86,0.4);
+}
+.q-grid-btn--answered {
+  background: rgba(75,123,63,0.12);
+  border-color: rgba(75,123,63,0.3);
+  color: var(--ct-verify);
+}
+.q-grid-btn--answered:hover {
+  border-color: var(--ct-verify);
+}
+.q-grid-btn--flagged {
+  background: rgba(47,93,86,0.12);
+  border-style: dashed;
+  border-color: var(--ct-accent);
+  color: var(--ct-accent);
+}
+.q-grid-btn--flagged:hover {
+  background: rgba(47,93,86,0.18);
+}
+.q-grid-btn--current {
+  background: var(--ct-accent);
+  border-color: var(--ct-accent);
+  box-shadow: inset 0 0 0 2px var(--ct-panel);
+  color: var(--ct-panel);
+}
+
+/* ── Modal ─────────────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(42, 36, 25, 0.45);
+  backdrop-filter: blur(4px);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--ct-space-md);
+}
+.modal-content {
+  background: var(--ct-panel);
+  border: 1px solid var(--ct-rim);
+  border-radius: var(--ct-radius-lg);
+  width: 100%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 1px 2px rgba(42,36,25,0.06), 0 12px 32px rgba(42,36,25,0.14);
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--ct-space-md) var(--ct-space-lg);
+  border-bottom: 1px solid var(--ct-rim);
+  flex-shrink: 0;
+}
+.modal-body {
+  overflow-y: auto;
+  flex: 1;
+  /* Without this, a flex item's default min-height:auto keeps it sized to
+     its content, so it never actually shrinks to fit inside modal-content's
+     max-height — content silently gets clipped instead of scrolling. */
+  min-height: 0;
+  padding: var(--ct-space-lg);
+}
+
+/* Fix whitespace in modal selects */
+.modal-content select {
+  background-position: right var(--ct-space-md) center;
+  padding-right: 2.5rem;
+}
+.modal-content option {
+  padding: var(--ct-space-xs) var(--ct-space-sm);
+  background: var(--ct-panel);
+  color: var(--ct-ink);
+}
+
+
+/* Fix whitespace in select options */
+select option {
+  white-space: nowrap;
+  padding: var(--ct-space-xs) var(--ct-space-sm);
+}
+
+.modal-footer {
+  padding: var(--ct-space-md) var(--ct-space-lg);
+  border-top: 1px solid var(--ct-rim);
+  flex-shrink: 0;
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--ct-space-sm);
+}
+
+/* ── Alert Box ─────────────────────────────────────────────────── */
+.alert-box {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ct-space-sm);
+  font-size: 0.875rem;
+  padding: var(--ct-space-md);
+  border-radius: var(--ct-radius-md);
+  border: 1px solid;
+}
+.alert-box--info { background: rgba(86,92,134,0.08); border-color: rgba(86,92,134,0.22); color: var(--ct-clarify); }
+.alert-box--success { background: rgba(75,123,63,0.08); border-color: rgba(75,123,63,0.22); color: var(--ct-verify); }
+.alert-box--alert { background: rgba(174,67,49,0.08); border-color: rgba(174,67,49,0.22); color: var(--ct-alert); }
+.alert-box--accent { background: rgba(47,93,86,0.08); border-color: rgba(47,93,86,0.22); color: var(--ct-accent); }
+
+/* ── Spinner ───────────────────────────────────────────────────── */
+.spinner {
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner { animation: none; border-color: var(--ct-accent) transparent transparent transparent; }
+}
+
+/* ── Tab System (Unified) ──────────────────────────────────────── */
+.tab-bar {
+  display: flex;
+  gap: var(--ct-space-xs);
+  padding: var(--ct-space-xs);
+  border-radius: var(--ct-radius-md);
+  background: var(--ct-sunken);
+}
+.tab-btn {
+  padding: var(--ct-space-sm) var(--ct-space-md);
+  border-radius: var(--ct-radius-sm);
+  font-family: var(--ct-font-body);
+  font-weight: 500;
+  font-size: 0.8125rem;
+  color: var(--ct-annotation);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all var(--ct-transition-fast);
+}
+.tab-btn:hover { color: var(--ct-ink); }
+.tab-btn--active {
+  background: var(--ct-panel);
+  color: var(--ct-ink);
+  box-shadow: var(--ct-shadow-surface);
+}
+
+/* ── Utility Classes ───────────────────────────────────────────── */
+.mono-nums { font-family: var(--ct-font-mono); font-variant-numeric: tabular-nums; }
+.truncate-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* ── Page Transition ───────────────────────────────────────────── */
+.page-enter { animation: fadeUp 0.25s ease both; }
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter { animation: none; opacity: 1; transform: none; }
+}
+
+.text-wrap-balance {
+  text-wrap: balance;
+}
+
+/* Monaco Editor uses its built-in "light" theme — no overrides needed. */
+}

@@ -1,0 +1,30 @@
+name: Rollback
+
+# Manual-only, on purpose — this flips live traffic back to whatever color
+# was active before the last flip. Run from the Actions tab.
+on:
+  workflow_dispatch: {}
+
+jobs:
+  rollback:
+    name: Roll back to previous color
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Load deploy SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Trust deploy host
+        run: ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Roll back
+        run: |
+          ssh "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            "cd '${{ secrets.DEPLOY_PATH }}' && ./scripts/deploy-blue-green.sh rollback"
+
+      - name: Status after rollback
+        run: |
+          ssh "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            "cd '${{ secrets.DEPLOY_PATH }}' && ./scripts/deploy-blue-green.sh status"

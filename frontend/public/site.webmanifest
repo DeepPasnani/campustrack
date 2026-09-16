@@ -1,0 +1,21 @@
+{
+  "name": "CampusTrack — Placement Assessment Portal",
+  "short_name": "CampusTrack",
+  "description": "Secure online placement test and assessment platform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F3EFE2",
+  "theme_color": "#2F5D56",
+  "icons": [
+    {
+      "src": "/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

@@ -1,0 +1,447 @@
+# CampusTrack — single-file deployment.
+#
+#   docker compose up -d --build
+#
+# Everything needed to run the app end to end: Postgres, Redis, a
+# single-instance Piston sandbox (built from infra/piston/Dockerfile, with
+# language packages baked in at image build time — no first-boot download),
+# the Node/Express backend, a one-shot frontend build, and Caddy as the
+# public edge (automatic HTTPS via Let's Encrypt, config driven entirely by
+# the `labels:` below — lucaslorentz/caddy-docker-proxy, no separate
+# Caddyfile).
+#
+# Before first run: copy .env.example to .env and fill in DOMAIN plus
+# the required secrets (compose refuses to start without them).
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: pp_postgres
+    environment:
+      POSTGRES_DB: campustrack
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env, e.g. via openssl rand -base64 24}"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    # No `ports:` — reachable from backend/backend-init over the compose
+    # network only, not from the host.
+
+  redis:
+    image: redis:7-alpine
+    container_name: pp_redis
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    # No `ports:` — internal only, same reasoning as postgres.
+
+  # ─────────────────────────────────────────────────────────────
+  # Piston (code execution engine) — single instance. Language packages are
+  # baked into the image at build time (infra/piston/Dockerfile +
+  # scripts/bake-package.sh, one language per parallel build stage), so this
+  # is ready to execute code as soon as its healthcheck passes — no
+  # piston-init download step needed.
+  # ─────────────────────────────────────────────────────────────
+
+  # piston:
+  #   build:
+  #     context: ./infra/piston
+  #     dockerfile: Dockerfile
+  #   # ghcr.io/engineer-man/piston has no arm64 build (see Dockerfile) — pin
+  #   # the run platform to match the build platform explicitly rather than
+  #   # letting it fall back implicitly on non-amd64 hosts.
+  #   platform: linux/amd64
+  #   container_name: pp_piston
+  #   privileged: true
+  #   environment:
+  #     # Tuned down from the upstream default (80) for a single instance on
+  #     # 16GB RAM — extra requests queue instead of exhausting memory during
+  #     # an exam traffic spike. Bump via .env if load testing shows headroom.
+  #     PISTON_MAX_CONCURRENT_JOBS: ${PISTON_MAX_CONCURRENT_JOBS:-24}
+  #     PISTON_RUN_TIMEOUT: 15000
+  #     PISTON_COMPILE_TIMEOUT: 15000
+  #     PISTON_RUN_MEMORY_LIMIT: 536870912
+  #     PISTON_COMPILE_MEMORY_LIMIT: 536870912
+  #     PISTON_LOG_LEVEL: DEBUG
+  #   volumes:
+  #     - piston_packages:/piston/packages
+  #   healthcheck:
+  #     test: ["CMD", "node", "-e", "require('http').get('http://localhost:2000/api/v2/runtimes', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+  #     interval: 5s
+  #     timeout: 3s
+  #     retries: 15
+  #     start_period: 15s
+  #   restart: unless-stopped
+  #   # No `ports:` — only the backend talks to Piston, internally.
+
+  # ─────────────────────────────────────────────────────────────
+  # Backend
+  # ─────────────────────────────────────────────────────────────
+
+  backend-init:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pp_backend_init
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/campustrack
+      REDIS_URL: redis://redis:6379
+    entrypoint: ["sh", "-c", "node src/db/migrate.js && node src/db/seed.js"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: "no"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pp_backend
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      FRONTEND_URL: "https://${DOMAIN:?Set DOMAIN in .env, e.g. campustrack.deadpan.qzz.io}"
+      TRUST_PROXY: 1
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/campustrack
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: "${JWT_SECRET:?Set JWT_SECRET in .env, e.g. via openssl rand -base64 48}"
+      JWT_EXPIRES_IN: 7d
+      REFRESH_TOKEN_SECRET: "${REFRESH_TOKEN_SECRET:?Set REFRESH_TOKEN_SECRET in .env, e.g. via openssl rand -base64 48}"
+      TZ: Asia/Kolkata
+      PISTON_API_URL: ${PISTON_API_URL:-}
+      CODE_EXECUTION_PROVIDER: piston
+      # ── Email ──
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      EMAIL_FROM: ${EMAIL_FROM:-CampusTrack <noreply@campustrack.local>}
+      # ── Google OAuth ──
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      # ── AI features ──
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
+      # ── SSO / SAML / LDAP ──
+      SSO_PROVIDER: ${SSO_PROVIDER:-}
+      SAML_ENTRY_POINT: ${SAML_ENTRY_POINT:-}
+      SAML_ISSUER: ${SAML_ISSUER:-}
+      SAML_CERT: ${SAML_CERT:-}
+      LDAP_URL: ${LDAP_URL:-}
+      LDAP_BASE_DN: ${LDAP_BASE_DN:-}
+      LDAP_DOMAIN: ${LDAP_DOMAIN:-}
+      # ── LMS integration ──
+      LMS_TYPE: ${LMS_TYPE:-}
+      LMS_BASE_URL: ${LMS_BASE_URL:-}
+      LMS_API_KEY: ${LMS_API_KEY:-}
+      LMS_API_SECRET: ${LMS_API_SECRET:-}
+      # ── ATS integration ──
+      ATS_TYPE: ${ATS_TYPE:-}
+      ATS_API_KEY: ${ATS_API_KEY:-}
+      ATS_API_SECRET: ${ATS_API_SECRET:-}
+      ATS_COMPANY_ID: ${ATS_COMPANY_ID:-}
+      # ── Zoom ──
+      ZOOM_API_KEY: ${ZOOM_API_KEY:-}
+      ZOOM_API_SECRET: ${ZOOM_API_SECRET:-}
+      # ── Payments ──
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+      # ── Twilio SMS ──
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_PHONE_NUMBER: ${TWILIO_PHONE_NUMBER:-}
+      # ── Outlook ──
+      OUTLOOK_CLIENT_ID: ${OUTLOOK_CLIENT_ID:-}
+      OUTLOOK_CLIENT_SECRET: ${OUTLOOK_CLIENT_SECRET:-}
+      # ── Sentry (optional — blank disables it, see .env.example) ──
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend-init:
+        condition: service_completed_successfully
+      # piston:
+      #   condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:5000/health', r => { let d=''; r.on('data',c=>d+=c); r.on('end',()=>process.exit(JSON.parse(d).status==='ok'?0:1)) }).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    # Caddy routes to this container by name over the compose network; these
+    # labels are what caddy-docker-proxy reads to build its live config.
+    labels:
+      # ── Main site: real domain, automatic Let's Encrypt HTTPS ──
+      caddy_0: ${DOMAIN}
+      caddy_0.encode: gzip zstd
+      caddy_0.header_0: X-Frame-Options SAMEORIGIN
+      caddy_0.header_1: X-Content-Type-Options nosniff
+      caddy_0.header_2: Referrer-Policy "strict-origin-when-cross-origin"
+      caddy_0.handle_0: /api/*
+      caddy_0.handle_0.reverse_proxy: "{{upstreams 5000}}"
+      caddy_0.handle_1: /uploads/*
+      caddy_0.handle_1.reverse_proxy: "{{upstreams 5000}}"
+      caddy_0.handle_2: /ws
+      caddy_0.handle_2.reverse_proxy: "{{upstreams 5000}}"
+      caddy_0.handle_3: ""
+      caddy_0.handle_3.root: "* /srv"
+      caddy_0.handle_3.try_files: "{path} /index.html"
+      caddy_0.handle_3.file_server: ""
+      # ── Debug site: plain HTTP, mirrors the full app for local access
+      # from this machine only. Used to be bound to 0.0.0.0 (reachable from
+      # the whole internet, unencrypted, including login) — that part was
+      # the actual vulnerability, not the port's existence. The `ports:`
+      # mapping below now binds it to 127.0.0.1 instead, so `localhost:*`
+      # still works here but nothing outside this host can reach it. ──
+      caddy_1: http://:${DEBUG_PORT:-8080}
+      caddy_1.handle_0: /api/*
+      caddy_1.handle_0.reverse_proxy: "{{upstreams 5000}}"
+      caddy_1.handle_1: /uploads/*
+      caddy_1.handle_1.reverse_proxy: "{{upstreams 5000}}"
+      caddy_1.handle_2: /ws
+      caddy_1.handle_2.reverse_proxy: "{{upstreams 5000}}"
+      caddy_1.handle_3: ""
+      caddy_1.handle_3.root: "* /srv"
+      caddy_1.handle_3.try_files: "{path} /index.html"
+      caddy_1.handle_3.file_server: ""
+
+  # ─────────────────────────────────────────────────────────────
+  # Frontend — built once, served as static files directly by Caddy
+  # (no nginx container). This job builds up to Vite's `builder` stage
+  # and copies dist/ into a volume Caddy mounts read-only.
+  # ─────────────────────────────────────────────────────────────
+
+  frontend-build:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: builder
+      args:
+        VITE_GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+        VITE_APP_NAME: ${APP_NAME:-CampusTrack}
+        VITE_API_URL: "/api"
+        VITE_WS_URL: "wss://${DOMAIN:?Set DOMAIN in .env}/ws"
+        VITE_COLLEGE_NAME: ${COLLEGE_NAME:-Your College}
+        VITE_SENTRY_DSN: ${VITE_SENTRY_DSN:-}
+    container_name: pp_frontend_build
+    command: ["sh", "-c", "rm -rf /out/* && cp -r /app/dist/. /out/"]
+    volumes:
+      - frontend_dist:/out
+    restart: "no"
+
+  # ─────────────────────────────────────────────────────────────
+  # Observability — Prometheus (metrics) + Alertmanager (routes alerts),
+  # exporters for Postgres/Redis/host metrics, Loki + Promtail (log
+  # aggregation from every container's docker logs), and Grafana
+  # (dashboards over both). The backend already exposes GET /metrics in
+  # Prometheus format and logs structured JSON via pino — see
+  # backend/src/index.js — this stack is what actually reads them; none of
+  # it existed as running containers before.
+  # ─────────────────────────────────────────────────────────────
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: pp_prometheus
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/healthy || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    # No `ports:` — only Grafana and other containers on the compose
+    # network need to reach this.
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: pp_alertmanager
+    volumes:
+      - ./infra/prometheus/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    restart: unless-stopped
+
+  # Exposes Postgres's internal stats (pg_up, pg_stat_activity_count, ...)
+  # as Prometheus metrics — alerts.yml's DatabaseDown/HighDBConnectionCount
+  # rules read these.
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: pp_postgres_exporter
+    environment:
+      DATA_SOURCE_NAME: "postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/campustrack?sslmode=disable"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Same, for Redis (redis_up — alerts.yml's RedisDown rule).
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.62.0
+    container_name: pp_redis_exporter
+    command: ["--redis.addr=redis://redis:6379"]
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Host-level CPU/memory/disk metrics for the Grafana "Node" dashboard —
+  # needs read-only access to the host's /proc and /sys to report on the
+  # host itself rather than its own container.
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: pp_node_exporter
+    pid: host
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --path.rootfs=/rootfs
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+    restart: unless-stopped
+
+  # Backs the PistonUnreachable alert and "Piston Availability" panel by
+  # probing the external Piston instance's health endpoint (see
+  # infra/prometheus/prometheus.yml's piston-lb job).
+  blackbox-exporter:
+    image: prom/blackbox-exporter:v0.25.0
+    container_name: pp_blackbox_exporter
+    volumes:
+      - ./infra/prometheus/blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:3.2.1
+    container_name: pp_loki
+    volumes:
+      - ./infra/loki/loki-config.yml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3100/ready || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Ships every container's docker logs to Loki (see
+  # infra/promtail/promtail-config.yml for which containers/fields).
+  promtail:
+    image: grafana/promtail:3.2.1
+    container_name: pp_promtail
+    volumes:
+      - ./infra/promtail/promtail-config.yml:/etc/promtail/config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      loki:
+        condition: service_healthy
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.3.1
+    container_name: pp_grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in .env, e.g. via openssl rand -base64 18}"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./infra/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./infra/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      # Loopback-only, same reasoning as the Caddy debug port below — this
+      # is an internal ops dashboard, not meant to be public by default.
+      # Reach it via `ssh -L 3001:localhost:3001 <host>` then
+      # http://localhost:3001, or add a caddy_N label block to the caddy
+      # service below (matching the backend service's own labels) to
+      # publish it on a subdomain instead.
+      - "127.0.0.1:3001:3000"
+    depends_on:
+      prometheus:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────────────────
+  # Caddy — public edge. Config is generated entirely from the `labels:`
+  # on the backend service above (lucaslorentz/caddy-docker-proxy).
+  # ─────────────────────────────────────────────────────────────
+
+  caddy:
+    image: lucaslorentz/caddy-docker-proxy:2.9-alpine
+    container_name: pp_caddy
+    ports:
+      - "80:80"
+      - "443:443"
+      # Loopback-only: reachable as localhost:${DEBUG_PORT} from this host,
+      # not from the network/internet. Omitting the "127.0.0.1:" prefix
+      # here is exactly what made the old debug site publicly reachable.
+      - "127.0.0.1:${DEBUG_PORT:-8080}:${DEBUG_PORT:-8080}"
+    environment:
+      CADDY_INGRESS_NETWORKS: campustrack_net
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - frontend_dist:/srv:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend-build:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+# Renaming the implicit default network (instead of declaring a separate
+# custom one) keeps every service above on it automatically — no need to
+# add `networks:` to each service individually — while still giving it a
+# fixed, predictable name for CADDY_INGRESS_NETWORKS above.
+networks:
+  default:
+    name: campustrack_net
+
+volumes:
+  postgres_data:
+  redis_data:
+  piston_packages:
+  frontend_dist:
+  caddy_data:
+  caddy_config:
+  prometheus_data:
+  alertmanager_data:
+  loki_data:
+  grafana_data:

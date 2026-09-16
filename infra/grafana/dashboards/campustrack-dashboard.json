@@ -1,0 +1,101 @@
+{
+  "title": "CampusTrack - System Overview",
+  "version": 1,
+  "panels": [
+    {
+      "title": "Request Rate",
+      "type": "graph",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "rate(http_requests_total[5m])",
+          "legendFormat": "{{method}} {{path}}"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 }
+    },
+    {
+      "title": "P99 Latency",
+      "type": "graph",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m]))",
+          "legendFormat": "p99"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 }
+    },
+    {
+      "title": "DB Connection Pool",
+      "type": "graph",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "pg_stat_activity_count",
+          "legendFormat": "connections"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 8 }
+    },
+    {
+      "title": "Piston Availability",
+      "type": "graph",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "probe_success{job=\"piston-lb\"}",
+          "legendFormat": "piston-lb up"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 8 }
+    },
+    {
+      "title": "Active Users",
+      "type": "graph",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "active_users_total",
+          "legendFormat": "active"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 8 }
+    },
+    {
+      "title": "HTTP Status Codes (5m rate)",
+      "type": "graph",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "rate(http_requests_total{status=~\"2..\"}[5m])",
+          "legendFormat": "2xx"
+        },
+        {
+          "expr": "rate(http_requests_total{status=~\"4..\"}[5m])",
+          "legendFormat": "4xx"
+        },
+        {
+          "expr": "rate(http_requests_total{status=~\"5..\"}[5m])",
+          "legendFormat": "5xx"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 }
+    },
+    {
+      "title": "Memory Usage",
+      "type": "graph",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "process_resident_memory_bytes",
+          "legendFormat": "{{instance}}"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 }
+    }
+  ],
+  "schemaVersion": 38,
+  "time": { "from": "now-6h", "to": "now" },
+  "refresh": "30s"
+}

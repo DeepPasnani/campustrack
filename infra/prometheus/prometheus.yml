@@ -1,0 +1,60 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+rule_files:
+  - "alerts.yml"
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'campustrack-backend'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets:
+          - 'backend:5000'
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        regex: '(.*):.*'
+        replacement: '$1'
+
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # Piston has no built-in Prometheus exporter, so we probe it with
+  # blackbox-exporter instead. probe_success for this job backs both the
+  # PistonUnreachable alert and the Grafana "Piston Availability" panel.
+  # This deployment uses an *external* Piston instance (PISTON_API_URL in
+  # .env) rather than the local piston/piston-lb containers in this repo's
+  # infra/piston — update the target below if that URL ever changes.
+  - job_name: 'piston-lb'
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - http://64.120.92.217:7970/api/v2/runtimes
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115

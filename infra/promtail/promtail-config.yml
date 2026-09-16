@@ -1,0 +1,75 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /promtail/positions.yml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: campustrack-backend
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+        filters:
+          - name: name
+            values: ['pp_backend*']
+    relabel_configs:
+      - source_labels: ['__meta_docker_container_name']
+        regex: 'pp_backend(?:_(.+))?'
+        target_label: 'instance'
+      - source_labels: ['__meta_docker_container_name']
+        target_label: 'container'
+      - source_labels: ['__meta_docker_container_log_stream']
+        target_label: 'log_stream'
+      - target_label: 'job'
+        replacement: 'campustrack-backend'
+    pipeline_stages:
+      - json:
+          expressions:
+            level: level
+            msg: msg
+            err: err
+            correlation_id: correlation_id
+            duration_ms: duration_ms
+            db_query_ms: db_query_ms
+            method: req.method
+            path: req.url
+            status: res.statusCode
+      - labels:
+          level:
+          instance:
+          container:
+
+  # There's no separate frontend server container in this deployment — the
+  # static build is served directly by Caddy (pp_caddy), which is also the
+  # public edge for the API, so its logs are the closest thing to
+  # "frontend" access logs (and the only place a 502/504 to a client would
+  # show up before ever reaching the backend).
+  - job_name: campustrack-caddy
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+        filters:
+          - name: name
+            values: ['pp_caddy*']
+    relabel_configs:
+      - source_labels: ['__meta_docker_container_name']
+        target_label: 'container'
+      - target_label: 'job'
+        replacement: 'campustrack-caddy'
+
+  - job_name: campustrack-postgres
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+        filters:
+          - name: name
+            values: ['pp_postgres*']
+    relabel_configs:
+      - source_labels: ['__meta_docker_container_name']
+        target_label: 'container'
+      - target_label: 'job'
+        replacement: 'campustrack-postgres'

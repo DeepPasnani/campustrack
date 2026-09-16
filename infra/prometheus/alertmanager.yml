@@ -1,0 +1,26 @@
+global:
+  resolve_timeout: 5m
+  # ── Optional notification backends ────────────────────────────────
+  # Uncomment and fill in to actually deliver alerts (email / Slack / Teams):
+  # smtp_smarthost: smtp.example.com:587
+  # smtp_from: alerts@your-domain.com
+  # smtp_auth_username: alerts@your-domain.com
+  # smtp_auth_password: "your-smtp-password"
+  # slack_api_url: https://hooks.slack.com/services/...
+
+route:
+  receiver: default
+  group_by: ['alertname', 'job']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+
+receivers:
+  - name: default
+    # Deliver alerts to your team's channel/webhook, e.g.:
+    # slack_configs:
+    #   - channel: '#alerts'
+    #     send_resolved: true
+    # email_configs:
+    #   - to: ops@your-domain.com
+    #     send_resolved: true
