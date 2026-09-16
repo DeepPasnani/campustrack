@@ -36,10 +36,14 @@ Build multi-section aptitude + coding tests, invite students in bulk, watch subm
 - **Question Bank** — build a reusable library of questions once and pull them into any future test.
 - **Live Code Execution** — full Monaco editor with grading against hidden test cases via a self-hosted [Piston](https://github.com/engineer-man/piston) instance; supports Python, JavaScript, Java, C, C++, and SQL (see [Supported Coding Languages](#supported-coding-languages)).
 - **Real-Time Proctoring** — WebSocket heartbeat monitoring, tab-switch detection, fullscreen enforcement, keystroke/plagiarism signals, and automatic submission on expiry.
-- **Results & Analytics** — score distributions, percentile rankings, per-question breakdowns, and CSV/PDF export.
-- **Leaderboard** — students are ranked across their cohort by performance.
+- **Results & Analytics** — score distributions, percentile rankings, per-question breakdowns, and CSV/PDF export with AI-powered insights.
+- **Leaderboard & Gamification** — students are ranked across their cohort by performance, with XP points, badges, and achievement tracking.
+- **Plagiarism Detection** — advanced code similarity analysis with detailed comparison views.
+- **AI Features** — AI-powered question generation, natural language analytics queries, automated tagging, and student feedback.
 - **Multi-admin support** — every admin account sees and can manage the full shared pool of tests, classes, and question banks (not just their own).
-- **Google OAuth login** for students, email/password for staff.
+- **Google OAuth login** for students, email/password for staff, with optional 2FA support.
+- **Placement Drives** — organize campus recruitment drives with multiple test rounds.
+- **Resources & Forum** — share learning materials and enable student discussion forums.
 - **Built-in observability** — Prometheus metrics, structured JSON logging shipped to Loki, and Grafana dashboards, wired up out of the box (see [Observability](#observability)).
 
 > A number of integration points are scaffolded in `.env.example` and/or the database schema (SSO/SAML/LDAP, LMS sync, ATS, Zoom, Stripe/Razorpay, Twilio) but have **no backend implementation wired up yet** — setting those env vars currently has no effect. Treat them as reserved for future work, not working features.
@@ -185,17 +189,27 @@ Common optional vars (same meaning in either file):
 .
 ├── backend/
 │   ├── src/
-│   │   ├── controllers/   # Route handlers (business logic)
-│   │   ├── routes/        # Express route registration
+│   │   ├── controllers/   # Route handlers (auth, tests, submissions, analytics,
+│   │   │                  # plagiarism, AI, gamification, drives, etc.)
+│   │   ├── routes/        # Express route registration (single index.js)
 │   │   ├── middleware/    # auth, rate limiting, validation, tenancy
-│   │   ├── services/      # piston, email, scheduler, ai, plagiarism, etc.
+│   │   ├── services/      # piston, email, scheduler, ai, plagiarism,
+│   │   │                  # websocket, calendar, pdf reports, etc.
 │   │   └── db/            # migrate.js (schema), seed.js, redis.js
 │   └── Dockerfile
 ├── frontend/
 │   ├── src/
-│   │   ├── pages/admin/       # Admin dashboard, test builder, analytics
-│   │   ├── pages/student/     # Student dashboard, test-taking, leaderboard
-│   │   ├── components/shared/ # Reusable UI (editor, cards, tables, etc.)
+│   │   ├── pages/
+│   │   │   ├── admin/         # Admin dashboard, test creator, question bank,
+│   │   │   │                  # results, analytics, plagiarism detection,
+│   │   │   │                  # user management, drives, AI tools, resources
+│   │   │   ├── student/       # Student dashboard, test interface, results,
+│   │   │   │                  # leaderboard, resources
+│   │   │   ├── Login.jsx      # Authentication with Google OAuth support
+│   │   │   ├── Profile.jsx    # User profile management
+│   │   │   └── CompleteProfile.jsx  # Profile completion flow
+│   │   ├── components/shared/ # Reusable UI (Monaco editor, timers, code
+│   │   │                      # playback, question previews, notifications, etc.)
 │   │   └── services/api.js    # Axios client + all API method definitions
 │   ├── nginx.conf          # Only used if you build the Dockerfile's final
 │   │                       # `nginx` stage standalone — the root compose
@@ -254,7 +268,7 @@ The root `docker-compose.yml` **is** the production deployment — there is no s
 4. `docker compose up -d --build`. Migrations run automatically via `backend-init`.
 5. If you want code execution in production, uncomment the `piston` service and set `PISTON_API_URL` — see [Getting Started](#getting-started).
 
-**A separate, more elaborate path exists in [`DEPLOYMENT.md`](DEPLOYMENT.md)**, describing a blue-green rollout behind nginx with GitHub Actions-driven, human-approved traffic flips (`scripts/deploy-blue-green.sh`). Be aware that guide references a `docker-compose.blue-green.yml` and `infra/blue-green-nginx.conf` that are **not present in this repo as of this README's writing** — treat `DEPLOYMENT.md` as a design for that heavier setup rather than a guide you can run as-is today, and reconcile it against whatever compose files actually exist in your checkout before following it.
+**A separate, more elaborate path exists in [`DEPLOYMENT.md`](DEPLOYMENT.md)**, describing a blue-green rollout behind nginx with GitHub Actions-driven, human-approved traffic flips (`scripts/deploy-blue-green.sh`). The blue-green nginx config is available at `infra/blue-green-nginx.conf`. This is a more advanced deployment strategy suitable for high-availability production environments.
 
 ## Backing Up & Restoring Data
 
