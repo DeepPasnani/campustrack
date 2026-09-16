@@ -138,12 +138,12 @@ npm install
 npm run db:migrate     # creates all tables
 npm run db:seed        # optional: sample data
 npm run test:smtp -- you@example.com   # optional: verify SMTP creds work
-npm run dev             # starts on :5000 with nodemon
+npm run dev             # starts on :4400 with nodemon
 
 # 2. Frontend (in a second terminal)
 cd frontend
 npm install
-npm run dev              # starts on :5173, proxies /api and /uploads to :5000
+npm run dev              # starts on :5173, proxies /api and /uploads to :4400
 ```
 
 Open http://localhost:5173.

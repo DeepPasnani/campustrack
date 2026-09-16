@@ -113,7 +113,7 @@ services:
     container_name: pp_backend
     environment:
       NODE_ENV: production
-      PORT: 5000
+      PORT: 4400
       FRONTEND_URL: "https://${DOMAIN:?Set DOMAIN in .env, e.g. campustrack.deadpan.qzz.io}"
       TRUST_PROXY: 1
       DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/campustrack
@@ -174,7 +174,7 @@ services:
       SENTRY_DSN: ${SENTRY_DSN:-}
       SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-production}
     ports:
-      - "5000:5000"
+      - "4400:4400"
     depends_on:
       postgres:
         condition: service_healthy
@@ -185,7 +185,7 @@ services:
       # piston:
       #   condition: service_healthy
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:5000/health', r => { let d=''; r.on('data',c=>d+=c); r.on('end',()=>process.exit(JSON.parse(d).status==='ok'?0:1)) }).on('error',()=>process.exit(1))"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:4400/health', r => { let d=''; r.on('data',c=>d+=c); r.on('end',()=>process.exit(JSON.parse(d).status==='ok'?0:1)) }).on('error',()=>process.exit(1))"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -201,11 +201,11 @@ services:
       caddy_0.header_1: X-Content-Type-Options nosniff
       caddy_0.header_2: Referrer-Policy "strict-origin-when-cross-origin"
       caddy_0.handle_0: /api/*
-      caddy_0.handle_0.reverse_proxy: "{{upstreams 5000}}"
+      caddy_0.handle_0.reverse_proxy: "{{upstreams 4400}}"
       caddy_0.handle_1: /uploads/*
-      caddy_0.handle_1.reverse_proxy: "{{upstreams 5000}}"
+      caddy_0.handle_1.reverse_proxy: "{{upstreams 4400}}"
       caddy_0.handle_2: /ws
-      caddy_0.handle_2.reverse_proxy: "{{upstreams 5000}}"
+      caddy_0.handle_2.reverse_proxy: "{{upstreams 4400}}"
       caddy_0.handle_3: ""
       caddy_0.handle_3.root: "* /srv"
       caddy_0.handle_3.try_files: "{path} /index.html"
@@ -218,11 +218,11 @@ services:
       # still works here but nothing outside this host can reach it. ──
       caddy_1: http://:${DEBUG_PORT:-8080}
       caddy_1.handle_0: /api/*
-      caddy_1.handle_0.reverse_proxy: "{{upstreams 5000}}"
+      caddy_1.handle_0.reverse_proxy: "{{upstreams 4400}}"
       caddy_1.handle_1: /uploads/*
-      caddy_1.handle_1.reverse_proxy: "{{upstreams 5000}}"
+      caddy_1.handle_1.reverse_proxy: "{{upstreams 4400}}"
       caddy_1.handle_2: /ws
-      caddy_1.handle_2.reverse_proxy: "{{upstreams 5000}}"
+      caddy_1.handle_2.reverse_proxy: "{{upstreams 4400}}"
       caddy_1.handle_3: ""
       caddy_1.handle_3.root: "* /srv"
       caddy_1.handle_3.try_files: "{path} /index.html"

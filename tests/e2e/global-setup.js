@@ -9,7 +9,7 @@ const { request } = require('@playwright/test');
 // super_admin account (superadmin@college.edu / SuperAdmin@123), so we log
 // in as it here and use it to provision the real admin test account.
 async function globalSetup() {
-  const apiURL = process.env.API_URL || 'http://localhost:5000';
+  const apiURL = process.env.API_URL || 'http://localhost:4400';
 
   const ctx = await request.newContext({ baseURL: apiURL });
 

@@ -6,8 +6,8 @@ CampusTrack uses a blue-green deployment pattern to achieve zero-downtime
 deployments with instant rollback capability.
 
 Two identical production environments run simultaneously:
-- **Blue** (port 5000) — currently active, serving user traffic
-- **Green** (port 5001) — inactive, ready for deployment
+- **Blue** (port 4400) — currently active, serving user traffic
+- **Green** (port 4401) — inactive, ready for deployment
 
 ## Architecture
 
@@ -23,8 +23,8 @@ Two identical production environments run simultaneously:
             │              │              │
     ┌───────▼───────┐ ┌───▼────────┐ ┌───▼────────┐
     │  Backend Blue │ │ Backend    │ │ Backend    │
-    │  (port 5000)  │ │ Green      │ │ (future N) │
-    └───────────────┘ │ (port 5001) │ └────────────┘
+    │  (port 4400)  │ │ Green      │ │ (future N) │
+    └───────────────┘ │ (port 4401) │ └────────────┘
                       └─────────────┘
 ```
 
@@ -39,7 +39,7 @@ Two identical production environments run simultaneously:
 
 This:
 1. Pulls the latest Docker images
-2. Rebuilds and starts the Green environment on port 5001
+2. Rebuilds and starts the Green environment on port 4401
 3. Runs health checks (up to 30 retries, 5 seconds apart)
 4. Runs smoke tests (login, health, API endpoints)
 5. If healthy: marks deployment successful, ready for traffic flip
@@ -96,12 +96,12 @@ services:
     build: ./backend
     container_name: pp_backend_blue
     environment:
-      PORT: 5000
+      PORT: 4400
       DATABASE_URL: ${DATABASE_URL}
       REDIS_URL: ${REDIS_URL}
       JWT_SECRET: ${JWT_SECRET}
     ports:
-      - "5000:5000"
+      - "4400:4400"
     networks:
       - campustrack
     restart: unless-stopped
@@ -110,12 +110,12 @@ services:
     build: ./backend
     container_name: pp_backend_green
     environment:
-      PORT: 5001
+      PORT: 4401
       DATABASE_URL: ${DATABASE_URL}
       REDIS_URL: ${REDIS_URL}
       JWT_SECRET: ${JWT_SECRET}
     ports:
-      - "5001:5001"
+      - "4401:4401"
     networks:
       - campustrack
     restart: unless-stopped
@@ -146,8 +146,8 @@ Run automatically after each deployment:
 
 ```bash
 # Manual smoke test
-curl -f http://localhost:5000/health
-curl -f -X POST http://localhost:5000/api/auth/login \
+curl -f http://localhost:4400/health
+curl -f -X POST http://localhost:4400/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@test.edu","password":"testpass123"}'
 ```

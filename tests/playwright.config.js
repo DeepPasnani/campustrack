@@ -30,7 +30,7 @@ module.exports = defineConfig({
     ? undefined
     : {
         command: 'docker compose -f ../docker-compose.yml up -d && sleep 10',
-        url: 'http://localhost:5000/health',
+        url: 'http://localhost:4400/health',
         reuseExistingServer: true,
         timeout: 120000,
       },

@@ -49,7 +49,7 @@ services:
     deploy:
       replicas: 3
     environment:
-      PORT: 5000
+      PORT: 4400
       # All instances share DB + Redis URLs
     # No ports exposed individually — nginx handles routing
 ```
@@ -113,7 +113,7 @@ Use the built-in load test:
 
 ```bash
 # Simulate 150 concurrent users for 60 seconds
-node scripts/load-test.js --concurrency 150 --duration 60 --url http://localhost:5000
+node scripts/load-test.js --concurrency 150 --duration 60 --url http://localhost:4400
 ```
 
 ## Database Connection Pool Tuning

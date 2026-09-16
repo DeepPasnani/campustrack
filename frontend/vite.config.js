@@ -6,9 +6,9 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/api':     { target: 'http://localhost:5000', changeOrigin: true },
-      '/uploads': { target: 'http://localhost:5000', changeOrigin: true },
-      '/ws':      { target: 'ws://localhost:5000',  ws: true },
+      '/api':     { target: 'http://localhost:4400', changeOrigin: true },
+      '/uploads': { target: 'http://localhost:4400', changeOrigin: true },
+      '/ws':      { target: 'ws://localhost:4400',  ws: true },
     },
   },
   // `vite preview` (used to serve the production build) does NOT reuse
@@ -19,9 +19,9 @@ export default defineConfig({
     host: true,
     port: 5173,
     proxy: {
-      '/api':     { target: 'http://localhost:5000', changeOrigin: true },
-      '/uploads': { target: 'http://localhost:5000', changeOrigin: true },
-      '/ws':      { target: 'ws://localhost:5000',  ws: true },
+      '/api':     { target: 'http://localhost:4400', changeOrigin: true },
+      '/uploads': { target: 'http://localhost:4400', changeOrigin: true },
+      '/ws':      { target: 'ws://localhost:4400',  ws: true },
     },
   },
   build: {

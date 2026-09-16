@@ -19,7 +19,7 @@ COMPOSE="docker compose -f docker-compose.yml -f docker-compose.blue-green.yml"
 TEMPLATE="infra/blue-green-nginx.conf"
 ACTIVE_CONF="infra/nginx-active.conf"
 STATE_FILE=".deploy-state"
-HEALTH_CHECK_JS="require('http').get('http://localhost:5000/health', r => { let d=''; r.on('data',c=>d+=c); r.on('end',()=>process.exit(JSON.parse(d).status==='ok'?0:1)) }).on('error',()=>process.exit(1))"
+HEALTH_CHECK_JS="require('http').get('http://localhost:4400/health', r => { let d=''; r.on('data',c=>d+=c); r.on('end',()=>process.exit(JSON.parse(d).status==='ok'?0:1)) }).on('error',()=>process.exit(1))"
 
 log() { echo "[deploy-blue-green] $*"; }
 die() { echo "[deploy-blue-green] ERROR: $*" >&2; exit 1; }

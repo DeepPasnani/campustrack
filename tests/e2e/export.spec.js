@@ -7,7 +7,7 @@ test.describe('CSV/PDF Export', () => {
   let testId;
 
   test.beforeAll(async () => {
-    const apiURL = process.env.API_URL || 'http://localhost:5000';
+    const apiURL = process.env.API_URL || 'http://localhost:4400';
     apiContext = await request.newContext({ baseURL: apiURL });
 
     const loginRes = await apiContext.post('/api/auth/login', {

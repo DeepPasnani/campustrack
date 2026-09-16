@@ -43,7 +43,7 @@ const { pool, getReadPool } = require('./db');
 const { getRedis } = require('./db/redis');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 4400;
 
 // ── Trust proxy ───────────────────────────────────────────────
 // This app always sits behind at least one reverse proxy (the Nginx
@@ -106,7 +106,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
 // browsers silently refuse to render <img src="..."> whenever the frontend
 // is hosted on a different origin/domain than this API (e.g. Vercel +
 // Render/Railway, or even just http://localhost:5173 calling
-// http://localhost:5000 directly). The network request succeeds, but the
+// http://localhost:4400 directly). The network request succeeds, but the
 // image never paints — this is one of the reasons uploaded question/option
 // images can appear broken on the test-taking page. "cross-origin" keeps
 // helmet's other protections while allowing images served from
